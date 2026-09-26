@@ -1,24 +1,26 @@
-import { ArchaeologyReport, StrataLayer } from '../core/models';
 import { SampleSite } from '../adapters/sample-data.adapter';
+import { ReportProjection } from '../core/report-projection';
 
 export interface UIEventHandlers {
   onSelectPreset: (siteId: string) => void;
   onUploadFile: (file: File) => void;
   onOpenReport: () => void;
+  onExportReport: () => void;
 }
 
 export function renderApp(
   container: HTMLElement,
-  report: ArchaeologyReport,
+  projection: ReportProjection,
   sampleSites: SampleSite[],
   selectedSiteId: string,
-  selectedLayerIndex: number,
   isReportOpen: boolean,
   handlers: UIEventHandlers,
   onSelectLayer: (idx: number) => void,
   onCloseReport: () => void
 ) {
-  const currentLayer = report.strata[selectedLayerIndex] || report.strata[0];
+  const { report } = projection;
+  const currentRow = projection.current;
+  const currentLayer = currentRow.layer;
 
   const escapeHtml = (str: string) =>
     str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
@@ -74,23 +76,23 @@ export function renderApp(
         <section class="core-column-wrap">
           <div class="column-title">
             <h3>🏛️ 对话地层岩芯柱 (自浅入深)</h3>
-            <span class="depth-indicator">总发掘深度: ${report.strata.length * 2.5}m</span>
+            <span class="depth-indicator">总发掘深度: ${projection.totalDepthText}</span>
           </div>
           <div class="strata-stack">
-            ${report.strata
+            ${projection.rows
               .map(
-                (layer, idx) => `
-              <div class="strata-card ${idx === selectedLayerIndex ? 'selected' : ''}" 
-                   data-layer="${idx}" 
-                   style="--layer-color: ${layer.colorHex}">
+                row => `
+              <div class="strata-card ${row.isSelected ? 'selected' : ''}"
+                   data-layer="${row.index}"
+                   style="--layer-color: ${row.layer.colorHex}">
                 <div class="strata-card-header">
-                  <span class="layer-tag">Layer 0${layer.depthLevel} · ${layer.geologicalCode}</span>
-                  <span class="layer-depth">深度 -${(layer.depthLevel * 2.4).toFixed(1)}m</span>
+                  <span class="layer-tag">Layer 0${row.layer.depthLevel} · ${row.layer.geologicalCode}</span>
+                  <span class="layer-depth">深度 ${row.depthText}</span>
                 </div>
-                <div class="layer-name">${escapeHtml(layer.epochName)}</div>
+                <div class="layer-name">${escapeHtml(row.layer.epochName)}</div>
                 <div class="layer-meta">
-                  <span>${layer.timeRange.start} ~ ${layer.timeRange.end}</span>
-                  <span class="temp-badge">${layer.temperatureCelsius}°C</span>
+                  <span>${row.timeRangeText}</span>
+                  <span class="temp-badge">${row.temperatureText}</span>
                 </div>
               </div>
             `
@@ -113,7 +115,7 @@ export function renderApp(
           <!-- Temperature -->
           <div class="temp-gauge-box">
             <div class="gauge-title">
-              <span>关系地温指数：${currentLayer.temperatureCelsius}°C</span>
+              <span>关系地温指数：${currentRow.temperatureText}</span>
               <span>记录密度：${currentLayer.messageCount} 条对话遗存</span>
             </div>
             <div class="gauge-bar-bg">
@@ -170,17 +172,17 @@ export function renderApp(
             <h4>⛏️ 该层位代表性对话化石 (Unearthed Artifacts)</h4>
             <div class="fossil-cards">
               ${
-                currentLayer.fossilRelics.length > 0
-                  ? currentLayer.fossilRelics
+                currentRow.fossils.length > 0
+                  ? currentRow.fossils
                       .map(
                         f => `
                     <div class="fossil-item">
                       <div class="fossil-top">
-                        <span class="fossil-badge">${escapeHtml(f.category)}</span>
-                        <span style="font-family:var(--font-mono);color:var(--text-muted);">${f.dateStr} · 发掘深度 -${f.depthMeters.toFixed(1)}m</span>
+                        <span class="fossil-badge">${escapeHtml(f.fossil.category)}</span>
+                        <span style="font-family:var(--font-mono);color:var(--text-muted);">${f.fossil.dateStr} · 发掘深度 ${f.depthText}</span>
                       </div>
-                      <div class="fossil-quote">“${escapeHtml(f.quote)}”</div>
-                      <div class="fossil-notes">🔬 考古学鉴定：${escapeHtml(f.archaeologicalNotes)} (保存完好度: ${f.preservationScore}%)</div>
+                      <div class="fossil-quote">“${escapeHtml(f.fossil.quote)}”</div>
+                      <div class="fossil-notes">🔬 考古学鉴定：${escapeHtml(f.fossil.archaeologicalNotes)} (保存完好度: ${f.fossil.preservationScore}%)</div>
                     </div>
                   `
                       )
@@ -202,8 +204,13 @@ export function renderApp(
             <div class="report-header">
               <h2>《${escapeHtml(report.siteName)}》关系考古发掘总报告</h2>
               <div class="report-sub">
-                ARCHAEOLOGICAL FIELD REPORT · 编号 ${escapeHtml(report.siteCode)} · 发掘时间：${report.excavatedAt}
+                ARCHAEOLOGICAL FIELD REPORT · 编号 ${escapeHtml(report.siteCode)} · 发掘时间：${escapeHtml(report.excavatedAt)}
               </div>
+            </div>
+
+            <div class="current-layer-banner">
+              🎯 当前勘察层位（与页面选择联动）：<strong>${escapeHtml(projection.selectedLayerBanner)}</strong>
+              · 地温 ${currentRow.temperatureText} · 深度 ${currentRow.depthText}
             </div>
 
             <div class="report-grid">
@@ -219,6 +226,63 @@ export function renderApp(
                 <div class="val">${report.carbon14Activity}%</div>
                 <div class="lbl">碳14现代残余活性</div>
               </div>
+            </div>
+
+            <div class="report-section">
+              <h4>地层投影总表（与页面岩芯柱同源数据）：</h4>
+              <table class="report-strata-table">
+                <thead>
+                  <tr>
+                    <th>层位 / 地质代号</th>
+                    <th>沉积时段</th>
+                    <th>发掘深度</th>
+                    <th>关系地温</th>
+                    <th>标本数</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${projection.rows
+                    .map(
+                      row => `
+                    <tr class="${row.isSelected ? 'row-selected' : ''}">
+                      <td>
+                        Layer 0${row.layer.depthLevel} · ${row.layer.geologicalCode}
+                        ${row.isSelected ? '<span class="row-flag">当前</span>' : ''}
+                        ${row.isPeak ? '<span class="row-flag flag-peak">峰值</span>' : ''}
+                        ${row.isCooling ? '<span class="row-flag flag-cooling">渐冷</span>' : ''}
+                        <div class="row-epoch">${escapeHtml(row.layer.epochName)}</div>
+                      </td>
+                      <td>${row.timeRangeText}</td>
+                      <td>${row.depthText}</td>
+                      <td>${row.temperatureText}</td>
+                      <td>${row.layer.messageCount} 条</td>
+                    </tr>
+                  `
+                    )
+                    .join('')}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="report-section">
+              <h4>出土化石清单（共 ${projection.fossils.length} 件，与页面化石卡一致）：</h4>
+              ${
+                projection.fossils.length > 0
+                  ? projection.fossils
+                      .map(
+                        f => `
+                    <div class="report-fossil-item">
+                      <div class="report-fossil-meta">
+                        <span class="fossil-badge">${escapeHtml(f.fossil.category)}</span>
+                        <span>${f.layerLabel} · ${f.fossil.dateStr} · 发掘深度 ${f.depthText} · 保存完好度 ${f.fossil.preservationScore}%</span>
+                      </div>
+                      <div class="fossil-quote">“${escapeHtml(f.fossil.quote)}”</div>
+                    </div>
+                  `
+                      )
+                      .join('')
+                  : '<p style="color:var(--text-muted);font-size:13px;">本遗址未出土代表性对话化石。</p>'
+              }
             </div>
 
             <div class="report-section">
@@ -239,7 +303,7 @@ export function renderApp(
 
             <div class="report-actions">
               <button class="btn-secondary" id="btnCloseReport">关闭报告</button>
-              <button class="btn-report" onclick="window.print()">🖨️ 打印 / 保存标本档案</button>
+              <button class="btn-report" id="btnExportReport">🖨️ 打印 / 保存标本档案</button>
             </div>
           </div>
         </div>
@@ -285,6 +349,10 @@ export function renderApp(
 
   container.querySelector('#btnOpenReport')?.addEventListener('click', () => {
     handlers.onOpenReport();
+  });
+
+  container.querySelector('#btnExportReport')?.addEventListener('click', () => {
+    handlers.onExportReport();
   });
 
   container.querySelectorAll('.strata-card').forEach(card => {

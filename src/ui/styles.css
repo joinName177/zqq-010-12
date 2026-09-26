@@ -571,3 +571,166 @@ body {
 .btn-secondary:hover {
   border-color: var(--earth-accent);
 }
+
+/* Report: current selection banner */
+.current-layer-banner {
+  background: rgba(212, 163, 115, 0.12);
+  border: 1px solid rgba(212, 163, 115, 0.4);
+  color: var(--earth-accent);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.current-layer-banner strong {
+  color: var(--text-main);
+}
+
+/* Report: strata projection table (same data as the on-page core column) */
+.report-strata-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+.report-strata-table th,
+.report-strata-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: top;
+}
+
+.report-strata-table th {
+  color: var(--ochre);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.report-strata-table .row-selected {
+  background: rgba(212, 163, 115, 0.1);
+}
+
+.report-strata-table .row-epoch {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.row-flag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  background: var(--earth-accent);
+  color: #1d1815;
+  font-weight: 700;
+}
+
+.row-flag.flag-peak {
+  background: var(--clay-red);
+  color: #fff;
+}
+
+.row-flag.flag-cooling {
+  background: #6c757d;
+  color: #fff;
+}
+
+/* Report: fossil list (same artifacts as the on-page fossil cards) */
+.report-fossil-item {
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.report-fossil-item:last-child {
+  border-bottom: none;
+}
+
+.report-fossil-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Print / export: only the report itself is exported, not the app chrome */
+@media print {
+  body {
+    background: #fff;
+    color: #1d1815;
+    background-image: none;
+  }
+
+  .site-header,
+  .control-hub,
+  .strata-layout,
+  .report-actions {
+    display: none !important;
+  }
+
+  .modal-overlay {
+    position: static;
+    background: none;
+    backdrop-filter: none;
+    padding: 0;
+    display: block;
+  }
+
+  .modal-content {
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    background: #fff;
+    color: #1d1815;
+  }
+
+  .modal-content .report-stat-card,
+  .modal-content .report-section {
+    background: #faf6f0;
+    border-color: #d8cfc4;
+  }
+
+  .modal-content .report-stat-card .val {
+    color: #8a5a2b;
+  }
+
+  .modal-content .report-stat-card .lbl,
+  .modal-content .report-sub,
+  .modal-content .report-fossil-meta,
+  .modal-content .report-strata-table .row-epoch {
+    color: #6b5f52;
+  }
+
+  .modal-content .report-strata-table th,
+  .modal-content .report-strata-table td {
+    border-bottom-color: #d8cfc4;
+  }
+
+  .modal-content .report-strata-table .row-selected {
+    background: #f3e9dc;
+  }
+
+  .modal-content .fossil-quote {
+    color: #1d1815;
+  }
+
+  .modal-content .current-layer-banner {
+    background: #f3e9dc;
+    border-color: #d4a373;
+    color: #8a5a2b;
+  }
+
+  .modal-content .current-layer-banner strong {
+    color: #1d1815;
+  }
+}

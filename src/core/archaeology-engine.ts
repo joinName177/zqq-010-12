@@ -6,6 +6,7 @@ import {
   EmotionalSediment,
   RelicCategory
 } from './models';
+import { DEPTH_METERS_PER_LEVEL, formatLocalDate, formatLocalDateTime } from './format';
 
 const DICT = {
   warmth: ['喜欢', '想你', '爱你', '宝贝', '心疼', '抱抱', '开心', '可爱', '好甜', '晚安', '乖', '幸福'],
@@ -87,8 +88,8 @@ function findRelic(messages: ChatMessage[], depthLevel: number): FossilArtifact[
       id: `relic-${depthLevel}-1`,
       name: `${cat}编号#0${depthLevel}`,
       category: cat,
-      depthMeters: depthLevel * 2.4,
-      dateStr: longest.timestamp.toISOString().split('T')[0],
+      depthMeters: depthLevel * DEPTH_METERS_PER_LEVEL,
+      dateStr: formatLocalDate(longest.timestamp),
       sender: longest.sender,
       quote: longest.content.slice(0, 120) + (longest.content.length > 120 ? '...' : ''),
       archaeologicalNotes: note,
@@ -102,8 +103,8 @@ function findRelic(messages: ChatMessage[], depthLevel: number): FossilArtifact[
       id: `relic-origin`,
       name: '原点撞击微陨石化石',
       category: '初识刻石',
-      depthMeters: 12.8,
-      dateStr: messages[0].timestamp.toISOString().split('T')[0],
+      depthMeters: 5 * DEPTH_METERS_PER_LEVEL,
+      dateStr: formatLocalDate(messages[0].timestamp),
       sender: messages[0].sender,
       quote: messages[0].content,
       archaeologicalNotes: '双方建立双向电磁对话信道的最初始信号记录。',
@@ -165,8 +166,8 @@ export function analyzeChatStrata(messages: ChatMessage[], siteName = '未知时
       geologicalCode: preset.geologicalCode,
       lithology: preset.lithology,
       timeRange: {
-        start: layerMsgs[0].timestamp.toISOString().split('T')[0],
-        end: layerMsgs[layerMsgs.length - 1].timestamp.toISOString().split('T')[0]
+        start: formatLocalDate(layerMsgs[0].timestamp),
+        end: formatLocalDate(layerMsgs[layerMsgs.length - 1].timestamp)
       },
       messageCount: layerMsgs.length,
       temperatureCelsius: temperature,
@@ -189,7 +190,7 @@ export function analyzeChatStrata(messages: ChatMessage[], siteName = '未知时
   return {
     siteCode: `RELIC-ARCH-${Math.floor(100000 + Math.random() * 900000)}`,
     siteName,
-    excavatedAt: new Date().toLocaleString('zh-CN', { hour12: false }),
+    excavatedAt: formatLocalDateTime(new Date()),
     totalMessages: sorted.length,
     totalDays,
     carbon14Activity,

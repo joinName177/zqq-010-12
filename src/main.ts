@@ -2,15 +2,19 @@ import './ui/styles.css';
 import { UniversalChatParserAdapter } from './adapters/chat-parser.adapter';
 import { SampleSitesAdapter } from './adapters/sample-data.adapter';
 import { ArchaeologyEngineAdapter } from './adapters/archaeology-engine.adapter';
+import { ReportExportAdapter } from './adapters/report-export.adapter';
 import { renderApp } from './ui/app';
 import { ArchaeologyReport } from './core/models';
 import { calculateReportMetrics } from './core/report-metrics';
+import { buildReportProjection } from './core/report-projection';
+import { validateReportForExport } from './core/report-validation';
 import { reportTelemetry } from './adapters/report-telemetry';
 import { buildBugSurface } from './adapters/quality/bugSurface';
 
 const parser = new UniversalChatParserAdapter();
 const sampleAdapter = new SampleSitesAdapter();
 const engine = new ArchaeologyEngineAdapter();
+const exportAdapter = new ReportExportAdapter();
 
 const sampleSites = sampleAdapter.getSites();
 let selectedSiteId = sampleSites[0].id;
@@ -32,12 +36,13 @@ appRoot.dataset.preembeddedBugs = JSON.stringify({
 });
 
 function update() {
+  // 页面与报告弹窗/导出共用同一份数据投影，确保口径一致
+  const projection = buildReportProjection(currentReport, selectedLayerIndex);
   renderApp(
     appRoot,
-    currentReport,
+    projection,
     sampleSites,
     selectedSiteId,
-    selectedLayerIndex,
     isReportOpen,
     {
       onSelectPreset: (siteId: string) => {
@@ -68,6 +73,15 @@ function update() {
       onOpenReport: () => {
         isReportOpen = true;
         update();
+      },
+      onExportReport: () => {
+        // 导出前校验：数据不一致时阻止导出并提示具体问题
+        const problems = validateReportForExport(currentReport, selectedLayerIndex);
+        if (problems.length > 0) {
+          alert('导出前校验未通过，已阻止导出：\n· ' + problems.join('\n· '));
+          return;
+        }
+        exportAdapter.printReportArchive(buildReportProjection(currentReport, selectedLayerIndex));
       }
     },
     (layerIdx: number) => {
