@@ -1,11 +1,15 @@
-import { ArchaeologyReport, StrataLayer } from '../core/models';
+import { ArchaeologyReport } from '../core/models';
 import { SampleSite } from '../adapters/sample-data.adapter';
+import { buildReportProjection, ReportProjection } from '../core/report-projection';
 
 export interface UIEventHandlers {
   onSelectPreset: (siteId: string) => void;
   onUploadFile: (file: File) => void;
   onOpenReport: () => void;
+  onExportReport: () => void;
 }
+
+const SEDIMENT_COLORS = ['#e76f51', '#f4a261', '#2a9d8f', '#9d0208', '#6c757d'];
 
 export function renderApp(
   container: HTMLElement,
@@ -14,11 +18,14 @@ export function renderApp(
   selectedSiteId: string,
   selectedLayerIndex: number,
   isReportOpen: boolean,
+  exportIssues: string[] | null,
   handlers: UIEventHandlers,
   onSelectLayer: (idx: number) => void,
   onCloseReport: () => void
 ) {
-  const currentLayer = report.strata[selectedLayerIndex] || report.strata[0];
+  // 页面与导出报告共用的唯一数据投影（含钳制后的当前选中层）
+  const view = buildReportProjection(report, selectedLayerIndex);
+  const currentLayer = view.selectedLayer;
 
   const escapeHtml = (str: string) =>
     str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
@@ -34,7 +41,7 @@ export function renderApp(
           </div>
         </div>
         <div class="header-status">
-          <span>● 发掘就绪 | 标本勘测点：${escapeHtml(report.siteCode)}</span>
+          <span>● 发掘就绪 | 标本勘测点：${escapeHtml(view.siteCode)}</span>
         </div>
       </header>
 
@@ -74,23 +81,23 @@ export function renderApp(
         <section class="core-column-wrap">
           <div class="column-title">
             <h3>🏛️ 对话地层岩芯柱 (自浅入深)</h3>
-            <span class="depth-indicator">总发掘深度: ${report.strata.length * 2.5}m</span>
+            <span class="depth-indicator">总发掘深度: ${view.totalDepthText}</span>
           </div>
           <div class="strata-stack">
-            ${report.strata
+            ${view.layers
               .map(
-                (layer, idx) => `
-              <div class="strata-card ${idx === selectedLayerIndex ? 'selected' : ''}" 
-                   data-layer="${idx}" 
-                   style="--layer-color: ${layer.colorHex}">
+                layer => `
+              <div class="strata-card ${layer.isSelected ? 'selected' : ''}"
+                   data-layer="${layer.index}"
+                   style="--layer-color: ${report.strata[layer.index].colorHex}">
                 <div class="strata-card-header">
-                  <span class="layer-tag">Layer 0${layer.depthLevel} · ${layer.geologicalCode}</span>
-                  <span class="layer-depth">深度 -${(layer.depthLevel * 2.4).toFixed(1)}m</span>
+                  <span class="layer-tag">${layer.layerTag}</span>
+                  <span class="layer-depth">深度 ${layer.depthText}</span>
                 </div>
                 <div class="layer-name">${escapeHtml(layer.epochName)}</div>
                 <div class="layer-meta">
-                  <span>${layer.timeRange.start} ~ ${layer.timeRange.end}</span>
-                  <span class="temp-badge">${layer.temperatureCelsius}°C</span>
+                  <span>${layer.timeRangeText}</span>
+                  <span class="temp-badge">${layer.temperatureText}</span>
                 </div>
               </div>
             `
@@ -113,7 +120,7 @@ export function renderApp(
           <!-- Temperature -->
           <div class="temp-gauge-box">
             <div class="gauge-title">
-              <span>关系地温指数：${currentLayer.temperatureCelsius}°C</span>
+              <span>关系地温指数：${currentLayer.temperatureText}</span>
               <span>记录密度：${currentLayer.messageCount} 条对话遗存</span>
             </div>
             <div class="gauge-bar-bg">
@@ -127,31 +134,17 @@ export function renderApp(
               🧪 情感词汇沉积物化验分析 (Sediment Spectrum)：
             </div>
             <div class="sediment-bars">
-              <div class="sediment-item">
-                <span>依恋温存</span>
-                <div class="sediment-progress"><div class="sediment-fill" style="width:${currentLayer.sediment.warmth}%;background:#e76f51;"></div></div>
-                <span>${currentLayer.sediment.warmth}%</span>
-              </div>
-              <div class="sediment-item">
-                <span>牵挂思念</span>
-                <div class="sediment-progress"><div class="sediment-fill" style="width:${currentLayer.sediment.longing}%;background:#f4a261;"></div></div>
-                <span>${currentLayer.sediment.longing}%</span>
-              </div>
-              <div class="sediment-item">
-                <span>生活琐碎</span>
-                <div class="sediment-progress"><div class="sediment-fill" style="width:${currentLayer.sediment.daily}%;background:#2a9d8f;"></div></div>
-                <span>${currentLayer.sediment.daily}%</span>
-              </div>
-              <div class="sediment-item">
-                <span>情绪摩擦</span>
-                <div class="sediment-progress"><div class="sediment-fill" style="width:${currentLayer.sediment.friction}%;background:#9d0208;"></div></div>
-                <span>${currentLayer.sediment.friction}%</span>
-              </div>
-              <div class="sediment-item">
-                <span>沉默冷却</span>
-                <div class="sediment-progress"><div class="sediment-fill" style="width:${currentLayer.sediment.silence}%;background:#6c757d;"></div></div>
-                <span>${currentLayer.sediment.silence}%</span>
-              </div>
+              ${currentLayer.sediment
+                .map(
+                  (item, i) => `
+                <div class="sediment-item">
+                  <span>${item.label}</span>
+                  <div class="sediment-progress"><div class="sediment-fill" style="width:${item.value}%;background:${SEDIMENT_COLORS[i]};"></div></div>
+                  <span>${item.valueText}</span>
+                </div>
+              `
+                )
+                .join('')}
             </div>
           </div>
 
@@ -161,7 +154,7 @@ export function renderApp(
               🏷️ 该层出土核心话题印记：
             </div>
             <div class="topics-cloud">
-              ${currentLayer.dominantTopics.map(t => `<span class="topic-chip">${escapeHtml(t)}</span>`).join('')}
+              ${currentLayer.topics.map(t => `<span class="topic-chip">${escapeHtml(t)}</span>`).join('')}
             </div>
           </div>
 
@@ -170,17 +163,17 @@ export function renderApp(
             <h4>⛏️ 该层位代表性对话化石 (Unearthed Artifacts)</h4>
             <div class="fossil-cards">
               ${
-                currentLayer.fossilRelics.length > 0
-                  ? currentLayer.fossilRelics
+                currentLayer.fossils.length > 0
+                  ? currentLayer.fossils
                       .map(
                         f => `
                     <div class="fossil-item">
                       <div class="fossil-top">
                         <span class="fossil-badge">${escapeHtml(f.category)}</span>
-                        <span style="font-family:var(--font-mono);color:var(--text-muted);">${f.dateStr} · 发掘深度 -${f.depthMeters.toFixed(1)}m</span>
+                        <span style="font-family:var(--font-mono);color:var(--text-muted);">${f.dateText} · 发掘深度 ${f.depthText}</span>
                       </div>
                       <div class="fossil-quote">“${escapeHtml(f.quote)}”</div>
-                      <div class="fossil-notes">🔬 考古学鉴定：${escapeHtml(f.archaeologicalNotes)} (保存完好度: ${f.preservationScore}%)</div>
+                      <div class="fossil-notes">🔬 考古学鉴定：${escapeHtml(f.notes)} (保存完好度: ${f.preservationText})</div>
                     </div>
                   `
                       )
@@ -195,55 +188,7 @@ export function renderApp(
       <!-- Modal: Report -->
       ${
         isReportOpen
-          ? `
-        <div class="modal-overlay" id="reportOverlay">
-          <div class="modal-content">
-            <div class="report-seal">国家地层考古认证</div>
-            <div class="report-header">
-              <h2>《${escapeHtml(report.siteName)}》关系考古发掘总报告</h2>
-              <div class="report-sub">
-                ARCHAEOLOGICAL FIELD REPORT · 编号 ${escapeHtml(report.siteCode)} · 发掘时间：${report.excavatedAt}
-              </div>
-            </div>
-
-            <div class="report-grid">
-              <div class="report-stat-card">
-                <div class="val">${report.totalDays} 天</div>
-                <div class="lbl">对话地质沉淀跨度</div>
-              </div>
-              <div class="report-stat-card">
-                <div class="val">${report.totalMessages} 条</div>
-                <div class="lbl">出土总话语标本</div>
-              </div>
-              <div class="report-stat-card">
-                <div class="val">${report.carbon14Activity}%</div>
-                <div class="lbl">碳14现代残余活性</div>
-              </div>
-            </div>
-
-            <div class="report-section">
-              <h4>地层温差纪年：</h4>
-              <p>最高温纪元：<strong>${escapeHtml(report.peakEpoch)}</strong></p>
-              <p>渐冷纪元：<strong>${escapeHtml(report.coolingEpoch)}</strong></p>
-            </div>
-
-            <div class="report-section">
-              <h4>地质剖面综述：</h4>
-              <p>${escapeHtml(report.archaeologicalSummary)}</p>
-            </div>
-
-            <div class="report-section">
-              <h4>馆藏专家终审评定：</h4>
-              <p>“${escapeHtml(report.curatorAssessment)}”</p>
-            </div>
-
-            <div class="report-actions">
-              <button class="btn-secondary" id="btnCloseReport">关闭报告</button>
-              <button class="btn-report" onclick="window.print()">🖨️ 打印 / 保存标本档案</button>
-            </div>
-          </div>
-        </div>
-      `
+          ? renderReportModal(view, exportIssues, escapeHtml)
           : ''
       }
     </div>
@@ -298,9 +243,140 @@ export function renderApp(
     onCloseReport();
   });
 
+  container.querySelector('#btnExportReport')?.addEventListener('click', () => {
+    handlers.onExportReport();
+  });
+
   container.querySelector('#reportOverlay')?.addEventListener('click', e => {
     if (e.target === container.querySelector('#reportOverlay')) {
       onCloseReport();
     }
   });
+}
+
+/**
+ * 报告弹窗：与页面共用同一 ReportProjection，
+ * 地层剖面、温度、化石名录与页面展示完全一致。
+ */
+function renderReportModal(
+  view: ReportProjection,
+  exportIssues: string[] | null,
+  escapeHtml: (str: string) => string
+): string {
+  return `
+    <div class="modal-overlay" id="reportOverlay">
+      <div class="modal-content">
+        <div class="report-seal">国家地层考古认证</div>
+        <div class="report-header">
+          <h2>《${escapeHtml(view.siteName)}》关系考古发掘总报告</h2>
+          <div class="report-sub">
+            ARCHAEOLOGICAL FIELD REPORT · 编号 ${escapeHtml(view.siteCode)} · 发掘时间：${view.excavatedAtText}
+          </div>
+        </div>
+
+        <div class="report-grid">
+          <div class="report-stat-card">
+            <div class="val">${view.totalDays} 天</div>
+            <div class="lbl">对话地质沉淀跨度</div>
+          </div>
+          <div class="report-stat-card">
+            <div class="val">${view.totalMessages} 条</div>
+            <div class="lbl">出土总话语标本</div>
+          </div>
+          <div class="report-stat-card">
+            <div class="val">${view.carbon14Text}</div>
+            <div class="lbl">碳14现代残余活性</div>
+          </div>
+        </div>
+
+        <div class="report-section">
+          <h4>地层剖面与温差纪年（总发掘深度 ${view.totalDepthText}）：</h4>
+          <table class="report-strata-table">
+            <thead>
+              <tr>
+                <th>层位</th>
+                <th>地质纪元</th>
+                <th>沉积跨度</th>
+                <th>埋藏深度</th>
+                <th>关系地温</th>
+                <th>遗存密度</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${view.layers
+                .map(
+                  layer => `
+                <tr class="${layer.isSelected ? 'current-layer' : ''}">
+                  <td>${layer.layerTag}${layer.isSelected ? ' <span class="current-mark">★ 当前勘测层位</span>' : ''}</td>
+                  <td>${escapeHtml(layer.epochName)}</td>
+                  <td>${layer.timeRangeText}</td>
+                  <td>${layer.depthText}</td>
+                  <td>${layer.temperatureText}</td>
+                  <td>${layer.messageCount} 条</td>
+                </tr>
+              `
+                )
+                .join('')}
+            </tbody>
+          </table>
+          <p>最高温纪元：<strong>${escapeHtml(view.peakEpoch)}</strong>　渐冷纪元：<strong>${escapeHtml(view.coolingEpoch)}</strong></p>
+        </div>
+
+        <div class="report-section">
+          <h4>当前层位情感沉积化验（Layer 0${view.selectedLayer.depthLevel} · ${escapeHtml(view.selectedLayer.epochName)}）：</h4>
+          <p>${view.selectedLayer.sediment.map(item => `${item.label} ${item.valueText}`).join(' · ')}</p>
+          <p>核心话题印记：${view.selectedLayer.topics.map(t => escapeHtml(t)).join('、')}</p>
+        </div>
+
+        <div class="report-section">
+          <h4>出土对话化石名录（共 ${view.notableRelics.length} 件）：</h4>
+          ${
+            view.notableRelics.length > 0
+              ? view.notableRelics
+                  .map(
+                    f => `
+              <div class="report-fossil-item">
+                <div class="report-fossil-head">
+                  <span class="fossil-badge">${escapeHtml(f.category)}</span>
+                  <span>${f.dateText} · 发掘深度 ${f.depthText} · 保存完好度 ${f.preservationText}</span>
+                </div>
+                <div class="fossil-quote">“${escapeHtml(f.quote)}”</div>
+              </div>
+            `
+                  )
+                  .join('')
+              : '<p>本次发掘未出土突异晶体化石。</p>'
+          }
+        </div>
+
+        <div class="report-section">
+          <h4>地质剖面综述：</h4>
+          <p>${escapeHtml(view.archaeologicalSummary)}</p>
+        </div>
+
+        <div class="report-section">
+          <h4>馆藏专家终审评定：</h4>
+          <p>“${escapeHtml(view.curatorAssessment)}”</p>
+        </div>
+
+        ${
+          exportIssues && exportIssues.length > 0
+            ? `
+          <div class="export-issues">
+            <h4>⚠️ 导出前校验未通过，已阻止导出：</h4>
+            <ul>
+              ${exportIssues.map(issue => `<li>${escapeHtml(issue)}</li>`).join('')}
+            </ul>
+          </div>
+        `
+            : ''
+        }
+
+        <div class="report-actions">
+          <button class="btn-secondary" id="btnCloseReport">关闭报告</button>
+          <button class="btn-report" id="btnExportReport">🖨️ 打印 / 保存标本档案</button>
+        </div>
+      </div>
+    </div>
+  `;
 }

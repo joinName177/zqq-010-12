@@ -559,6 +559,115 @@ body {
   margin-top: 24px;
 }
 
+/* Report: strata profile table (与页面岩芯柱同一数据投影) */
+.report-strata-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.report-strata-table th,
+.report-strata-table td {
+  border: 1px solid var(--border-color);
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.report-strata-table th {
+  color: var(--earth-accent);
+  background: rgba(0, 0, 0, 0.3);
+  font-weight: 600;
+}
+
+.report-strata-table tr.current-layer td {
+  background: rgba(231, 111, 81, 0.12);
+  border-color: var(--clay-red);
+}
+
+.current-mark {
+  color: var(--clay-red);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Report: fossil register */
+.report-fossil-item {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: var(--panel-card);
+}
+
+.report-fossil-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Export validation issues */
+.export-issues {
+  border: 1px solid var(--clay-red);
+  background: rgba(157, 2, 8, 0.15);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: 8px;
+}
+
+.export-issues h4 {
+  color: var(--clay-red);
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.export-issues ul {
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+/* 打印导出：仅输出报告本体，隐藏页面背景与操作按钮 */
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .site-header,
+  .control-hub,
+  .strata-layout,
+  .report-actions,
+  .report-seal {
+    display: none !important;
+  }
+
+  .modal-overlay {
+    position: static;
+    background: none;
+    backdrop-filter: none;
+    padding: 0;
+  }
+
+  .modal-content {
+    max-height: none;
+    overflow: visible;
+    border: none;
+    box-shadow: none;
+    color: #1c1a17;
+    background: #fff;
+  }
+
+  .report-stat-card,
+  .report-section,
+  .report-fossil-item {
+    border-color: #ccc;
+    background: #fff;
+  }
+}
+
 .btn-secondary {
   background: var(--panel-card);
   border: 1px solid var(--border-color);

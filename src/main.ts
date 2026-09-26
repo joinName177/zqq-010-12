@@ -5,6 +5,8 @@ import { ArchaeologyEngineAdapter } from './adapters/archaeology-engine.adapter'
 import { renderApp } from './ui/app';
 import { ArchaeologyReport } from './core/models';
 import { calculateReportMetrics } from './core/report-metrics';
+import { clampLayerIndex } from './core/report-projection';
+import { validateReportForExport } from './core/report-validation';
 import { reportTelemetry } from './adapters/report-telemetry';
 import { buildBugSurface } from './adapters/quality/bugSurface';
 
@@ -17,6 +19,7 @@ let selectedSiteId = sampleSites[0].id;
 let currentReport: ArchaeologyReport = engine.excavateSite(sampleSites[0].data, sampleSites[0].name);
 let selectedLayerIndex = 0;
 let isReportOpen = false;
+let exportIssues: string[] | null = null;
 
 const appRoot = document.getElementById('app')!;
 const bugSurface = buildBugSurface([currentReport.totalMessages, currentReport.strata.length]);
@@ -39,6 +42,7 @@ function update() {
     selectedSiteId,
     selectedLayerIndex,
     isReportOpen,
+    exportIssues,
     {
       onSelectPreset: (siteId: string) => {
         const target = sampleSites.find(s => s.id === siteId);
@@ -46,6 +50,7 @@ function update() {
           selectedSiteId = siteId;
           currentReport = engine.excavateSite(target.data, target.name);
           selectedLayerIndex = 0;
+          exportIssues = null;
           update();
         }
       },
@@ -60,6 +65,7 @@ function update() {
           selectedSiteId = 'custom-upload';
           currentReport = engine.excavateSite(msgs, `自定义导入档案 · ${file.name}`);
           selectedLayerIndex = 0;
+          exportIssues = null;
           update();
         } catch (err: any) {
           alert('解析失败: ' + err.message);
@@ -67,15 +73,28 @@ function update() {
       },
       onOpenReport: () => {
         isReportOpen = true;
+        exportIssues = null;
         update();
+      },
+      onExportReport: () => {
+        // 导出前校验：数据口径不一致时阻止导出并展示问题清单
+        const validation = validateReportForExport(currentReport);
+        if (!validation.ok) {
+          exportIssues = validation.issues;
+          update();
+          return;
+        }
+        exportIssues = null;
+        window.print();
       }
     },
     (layerIdx: number) => {
-      selectedLayerIndex = layerIdx;
+      selectedLayerIndex = clampLayerIndex(currentReport, layerIdx);
       update();
     },
     () => {
       isReportOpen = false;
+      exportIssues = null;
       update();
     }
   );
